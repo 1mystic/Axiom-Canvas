@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Axiom Canvas - AI Math Visualizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- KaTeX for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
+    
+    <!-- Desmos API v1.7 -->
+    <script src="https://www.desmos.com/api/v1.7/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel: Graphing Calculator -->
+        <div class="panel" id="calculator-panel">
+            <div id="calculator"></div>
+        </div>
+
+        <!-- Right Panel: Chat Interface -->
+        <div class="panel" id="chat-panel">
+            <div class="chat-header">
+                <h1>Axiom Canvas</h1>
+                <p>AI-Powered Math Visualizer</p>
+            </div>
+
+            <!-- PDF Upload Section -->
+            <div class="upload-section">
+                <input type="file" id="pdf-upload" accept=".pdf" style="display: none;">
+                <button id="upload-btn" class="upload-btn">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0a1 1 0 0 1 1 1v5.586l1.293-1.293a1 1 0 1 1 1.414 1.414l-3 3a1 1 0 0 1-1.414 0l-3-3a1 1 0 1 1 1.414-1.414L7 6.586V1a1 1 0 0 1 1-1z"/>
+                        <path d="M2 9a1 1 0 0 1 1 1v3h10v-3a1 1 0 1 1 2 0v3a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-3a1 1 0 0 1 1-1z"/>
+                    </svg>
+                    Upload PDF
+                </button>
+                <span id="upload-status" class="upload-status"></span>
+            </div>
+
+            <!-- Chat Messages Display -->
+            <div id="chat-messages" class="chat-messages"></div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-container">
+                <textarea 
+                    id="chat-input" 
+                    class="chat-input" 
+                    placeholder="Ask me anything about math... e.g., 'plot y = x^2 - 3'"
+                    rows="1"
+                ></textarea>
+                <button id="send-btn" class="send-btn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2.5 3.5L18.5 10L2.5 16.5V11.5L13.5 10L2.5 8.5V3.5Z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="loading-indicator" style="display: none;">
+                <div class="spinner"></div>
+                <span>AI is thinking...</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

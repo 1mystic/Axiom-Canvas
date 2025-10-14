@@ -1,0 +1,71 @@
+You are an expert full-stack software architect specializing in Python, Flask, and modern web technologies. Your task is to design and provide the implementation plan for a web application called "AI Math Visualizer".
+
+The application's core purpose is to provide a seamless, side-by-side interface where users can interact with a graphing calculator through a natural language AI chat, which can also use the graph to provide visual explanations. The entire application must be designed for simple, free deployment on Vercel.
+
+Here is a detailed breakdown of the requirements.
+
+1. Project Overview & Core Features
+The web app will feature a two-panel, split-screen layout:
+
+Left Panel: An interactive graphing canvas, similar to Desmos.
+
+Right Panel: An AI-powered chat interface.
+
+Key User Stories:
+
+As a user, I want to type a mathematical expression like "plot y = x^2 - 3" into the chat, and see it instantly rendered on the graph.
+
+As a user, I want to ask the AI to modify the graph, for example, "now add the line y = 2x + 1 in red" or "zoom in on the intersection points."
+
+As a user, I want to ask a conceptual question, like "Can you explain the derivative of sin(x)?" and have the AI use both text in the chat and visual plots (e.g., plotting sin(x) and its tangent line) on the graph to explain it.
+
+As a user, I want to upload a PDF document (e.g., my math textbook chapter) and ask the AI questions based on its content, with the AI still able to use the graph for explanations.
+
+2. Architectural Design & Tech Stack
+The architecture must be lightweight and adhere to the constraints of Vercel's free tier.
+
+A. Frontend (Client-Side):
+
+Framework: None. Use vanilla HTML, CSS, and JavaScript to keep it simple and fast. Use Jinja2 for templating.
+
+Layout: A simple flexbox or CSS grid for the side-by-side panels.
+
+Graphing Library: Use the Desmos API v1.7. It is powerful, free, and perfect for this task. The JavaScript code will be responsible for initializing the calculator on the left panel and exposing functions to add/remove/modify expressions.
+
+Communication: The frontend will communicate with the backend via asynchronous fetch() API calls from the chat interface.
+
+B. Backend (Server-Side):
+
+Framework: Python 3.11+ with Flask.
+
+Deployment Target: Vercel Serverless Functions. This is a critical constraint. The entire Flask application must be contained within a single api/index.py file that Vercel can use as a serverless entry point.
+
+Routes:
+
+/: Serves the main index.html page using render_template.
+
+/api/chat: The primary API endpoint that handles all chat messages. It will receive user prompts (and potentially session history), process them, call the Gemini API, and return the response.
+
+C. AI & Language Model Integration:
+
+Model: Google's Gemini API. It's accessible, powerful, and has a generous free tier.
+
+Core Logic (The "Magic"): The most critical part is how the LLM communicates instructions to the graph. The LLM must be prompted to respond with a JSON object that separates the textual response from the graphing commands.
+
+Graphing Command Schema: You must define a strict JSON schema for graphing actions. When the backend sends a prompt to Gemini, it will instruct Gemini to use this schema.
+
+Example Gemini Output:
+
+{
+  "chatResponse": "Of course! Here is the graph of the parabola y = x^2 - 3. You can see its vertex is at (0, -3).",
+  "graphCommands": [
+    {
+      "command": "setExpression",
+      "params": { "id": "parabola1", "latex": "y = x^2 - 3" }
+    },
+    {
+      "command": "setExpression",
+      "params": { "id": "vertex", "latex": "(0, -3)", "color": "#c74440", "pointStyle": "POINT" }
+    }
+  ]
+}

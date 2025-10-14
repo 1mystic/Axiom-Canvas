@@ -1,0 +1,7 @@
+Flask
+google-genai
+PyMuPDF
+faiss-cpu
+numpy
+Werkzeug
+python-dotenv
