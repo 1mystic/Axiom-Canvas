@@ -241,6 +241,11 @@ async function sendMessage() {
         
         const data = await response.json();
         
+        console.log('=== AI RESPONSE ===');
+        console.log('Chat response:', data.chatResponse?.substring(0, 100) + '...');
+        console.log('Graph commands count:', data.graphCommands?.length || 0);
+        console.log('===================');
+        
         // Display AI response
         if (data.chatResponse) {
             addMessage(data.chatResponse, 'ai');
@@ -248,8 +253,10 @@ async function sendMessage() {
         }
         
         // Execute graph commands
-        if (data.graphCommands) {
+        if (data.graphCommands && data.graphCommands.length > 0) {
             executeGraphCommands(data.graphCommands);
+        } else {
+            console.log('No graph commands to execute');
         }
         
     } catch (error) {

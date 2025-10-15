@@ -4,7 +4,6 @@ import os
 import sys
 import json
 import tempfile
-import numpy as np
 from pathlib import Path
 import traceback
 
@@ -18,6 +17,7 @@ load_dotenv(parent_dir / '.env')
 # For PDF processing (Phase 4)
 try:
     import fitz  # PyMuPDF
+    import numpy as np
     PDF_SUPPORT = True
 except ImportError:
     PDF_SUPPORT = False
@@ -74,6 +74,14 @@ CRITICAL: You must ALWAYS respond with valid JSON in this exact format:
     }
   ]
 }
+
+IMPORTANT RULES:
+- ALWAYS include the "graphCommands" array, even if empty
+- When user asks to plot/graph/show/visualize something, INCLUDE the appropriate graph commands
+- When user asks to clear/remove something, INCLUDE removeExpression or clearExpressions commands
+- When user asks to modify a graph, INCLUDE new setExpression commands
+- If the question is purely conversational with no graphing intent, use empty array: "graphCommands": []
+- You will receive the current graph state - use those IDs when removing or modifying expressions
 
 Available Graph Commands:
 
@@ -233,6 +241,14 @@ def chat():
         history = data.get('history', [])
         current_expressions = data.get('currentExpressions', [])
         
+        print(f"\n=== NEW CHAT REQUEST ===")
+        print(f"User message: {user_message}")
+        print(f"Current expressions count: {len(current_expressions)}")
+        if current_expressions:
+            for expr in current_expressions:
+                print(f"  - {expr.get('id')}: {expr.get('latex')}")
+        print(f"========================\n")
+        
         if not user_message:
             return jsonify({
                 'chatResponse': 'Please provide a message.',
@@ -257,11 +273,20 @@ def chat():
             expr_list = "\n".join([f"- ID: '{expr['id']}', Expression: {expr['latex']}" for expr in current_expressions])
             conversation_context.append({
                 'role': 'user',
-                'parts': [f"Current expressions on the graph:\n{expr_list}"]
+                'parts': [f"CURRENT GRAPH STATE - These expressions are currently plotted:\n{expr_list}\n\nUse these exact IDs if you need to remove or modify any of these expressions."]
             })
             conversation_context.append({
                 'role': 'model',
-                'parts': ['I can see the current graph state. I will use these IDs when removing or modifying expressions.']
+                'parts': ['Understood. I can see the current expressions and will use the correct IDs for any modifications.']
+            })
+        else:
+            conversation_context.append({
+                'role': 'user',
+                'parts': ["CURRENT GRAPH STATE: The graph is currently empty."]
+            })
+            conversation_context.append({
+                'role': 'model',
+                'parts': ['Understood. The graph is blank and ready for new expressions.']
             })
         
         # Check if we have RAG context for this session
@@ -281,13 +306,17 @@ def chat():
             except Exception as e:
                 print(f"Error retrieving RAG context: {e}")
         
-        # Add recent conversation history (last 5 exchanges)
-        for msg in history[-10:]:
+        # Add recent conversation history (limited to avoid context overflow)
+        # Only include last 6 messages (3 exchanges) to keep context manageable
+        recent_history = history[-6:] if len(history) > 6 else history
+        for msg in recent_history:
             role = 'user' if msg['role'] == 'user' else 'model'
             conversation_context.append({
                 'role': role,
                 'parts': [msg['content']]
             })
+        
+        print(f"Context length: {len(conversation_context)} messages")
         
         # Add current user message
         conversation_context.append({
@@ -296,15 +325,32 @@ def chat():
         })
         
         # Generate response
-        chat_session = model.start_chat(history=conversation_context[:-1])
-        response = chat_session.send_message(user_message)
+        try:
+            chat_session = model.start_chat(history=conversation_context[:-1])
+            response = chat_session.send_message(user_message)
+        except Exception as api_error:
+            print(f"ERROR calling Gemini API: {api_error}")
+            return jsonify({
+                'chatResponse': f"Sorry, there was an error communicating with the AI: {str(api_error)}",
+                'graphCommands': []
+            })
         
         # Parse the response
-        response_text = response.text.strip()
+        response_text = response.text.strip() if response and response.text else ""
         
         print(f"\n=== RAW AI RESPONSE ===")
-        print(response_text[:500])  # Print first 500 chars
+        print(f"Response object: {response}")
+        print(f"Response text length: {len(response_text)}")
+        print(f"Response text: {response_text[:1000] if response_text else 'EMPTY!'}")
         print(f"======================\n")
+        
+        # Check if response is empty
+        if not response_text:
+            print("ERROR: AI returned empty response!")
+            return jsonify({
+                'chatResponse': "I apologize, but I didn't generate a proper response. Please try rephrasing your question.",
+                'graphCommands': []
+            })
         
         # Try to extract JSON from the response
         # Sometimes the model wraps JSON in markdown code blocks
@@ -325,7 +371,27 @@ def chat():
             # Extract JSON from mixed content
             json_start = response_text.find('{')
             json_end = response_text.rfind('}') + 1
-            response_text = response_text[json_start:json_end]
+            if json_end > json_start:
+                response_text = response_text[json_start:json_end]
+            else:
+                print("ERROR: Could not find valid JSON brackets")
+                return jsonify({
+                    'chatResponse': response_text,
+                    'graphCommands': []
+                })
+        else:
+            print("ERROR: No JSON found in response")
+            return jsonify({
+                'chatResponse': response_text if response_text else "I couldn't generate a proper response.",
+                'graphCommands': []
+            })
+        
+        if not response_text or response_text == '':
+            print("ERROR: Extracted text is empty")
+            return jsonify({
+                'chatResponse': "Sorry, I had trouble generating a response. Please try again.",
+                'graphCommands': []
+            })
         
         print(f"\n=== EXTRACTED JSON ===")
         print(response_text[:500])  # Print first 500 chars
