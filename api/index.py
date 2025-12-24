@@ -295,6 +295,12 @@ def retrieve_relevant_context(sid, query):
         print(f"RAG Error: {e}")
         return ""
 
+@app.route('/')
+def index(): return render_template('index.html')
+
+@app.route('/favicon.ico')
+def favicon(): return send_from_directory(os.path.join(app.root_path, '../static'), 'favicon.ico')
+
 # PDF Upload - NumPy Version
 @app.route('/api/upload_pdf', methods=['POST'])
 def upload_pdf():
