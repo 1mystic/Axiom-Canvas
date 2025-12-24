@@ -67,7 +67,9 @@ async function sendMessage() {
     chatInput.value = '';
     chatInput.style.height = 'auto';
     sendBtn.disabled = true;
-    setLoading(true);
+
+    // Show Thinking Bubble
+    const thinkingId = showThinking();
 
     try {
         // Collect current graph state to give context to AI
@@ -88,6 +90,9 @@ async function sendMessage() {
         });
 
         const data = await response.json();
+
+        // Remove Thinking Bubble
+        removeThinking(thinkingId);
 
         if (response.ok) {
             // UI: Add AI Response
@@ -235,15 +240,40 @@ async function handleFileUpload(e) {
 }
 
 // --- 6. UTILITIES ---
-function setLoading(isLoading) {
-    const indicator = document.getElementById('loading-indicator');
-    if (isLoading) indicator.style.display = 'flex';
-    else indicator.style.display = 'none';
+function showThinking() {
+    const id = 'thinking-' + Date.now();
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ai thinking';
+    messageDiv.id = id;
 
-    // Don't auto-focus on mobile to prevent keyboard jumping
-    if (!/Android|iPhone/i.test(navigator.userAgent)) {
-        chatInput.focus();
-    }
+    // Avatar
+    const avatarDiv = document.createElement('div');
+    avatarDiv.className = 'message-avatar';
+    const img = document.createElement('img');
+    img.src = '/static/axiom_icon.svg';
+    avatarDiv.appendChild(img);
+
+    // Content
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    contentDiv.innerHTML = `
+        <div class="typing-dots">
+            <span></span><span></span><span></span>
+        </div>
+        <span>Thinking...</span>
+    `;
+
+    messageDiv.appendChild(avatarDiv);
+    messageDiv.appendChild(contentDiv);
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    return id;
+}
+
+function removeThinking(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
 }
 
 function updateConnectionStatus(isError) {
