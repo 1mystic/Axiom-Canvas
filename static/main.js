@@ -1,360 +1,263 @@
-// Global Variables
-let calculator;
-let sessionId = generateSessionId();
+// Axiom Canvas - Frontend Logic
+
+// --- 1. INITIALIZE DESMOS CALCULATOR ---
+const elt = document.getElementById('calculator');
+const calculator = Desmos.GraphingCalculator(elt, {
+    keypad: true,
+    graphpaper: true,
+    expressions: true,
+    settingsMenu: true,
+    zoomButtons: true,
+    expressionsCollapsed: false,
+    invertedColors: true, // Dark mode for Desmos
+    xAxisLabel: 'x',
+    yAxisLabel: 'y',
+});
+
+// Configure default view
+calculator.setMathBounds({
+    left: -10,
+    right: 10,
+    bottom: -10,
+    top: 10
+});
+
+// --- 2. CHAT & STATE MANAGEMENT ---
 let conversationHistory = [];
+let sessionId = Date.now().toString(); // Simple session ID
 
-// Initialize Desmos Calculator
-function initializeCalculator() {
-    const element = document.getElementById('calculator');
-    calculator = Desmos.GraphingCalculator(element, {
-        expressionsCollapsed: false,
-        settingsMenu: true,
-        zoomButtons: true,
-        expressions: true,
-        keypad: true,
-        graphpaper: true,
-        lockViewport: false,
-        invertedColors: false
-    });
-    
-    // Set default viewport
-    calculator.setMathBounds({
-        left: -10,
-        right: 10,
-        bottom: -10,
-        top: 10
-    });
-    
-    console.log('Desmos calculator initialized');
-}
+const chatInput = document.getElementById('chat-input');
+const sendBtn = document.getElementById('send-btn');
+const messagesContainer = document.getElementById('chat-messages');
+const uploadBtn = document.getElementById('upload-btn');
+const pdfInput = document.getElementById('pdf-upload');
 
-// Generate a unique session ID
-function generateSessionId() {
-    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
+// --- 3. EVENT LISTENERS ---
 
-// Simple Markdown to HTML converter
-function markdownToHtml(text) {
-    // Escape HTML to prevent XSS
-    let html = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    
-    // Convert markdown to HTML
-    html = html
-        // Bold: **text** or __text__ (non-greedy)
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/__(.+?)__/g, '<strong>$1</strong>')
-        // Italic: *text* or _text_ (but not inside bold)
-        .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>')
-        .replace(/(?<!_)_([^_]+?)_(?!_)/g, '<em>$1</em>')
-        // Inline code: `code`
-        .replace(/`([^`]+?)`/g, '<code>$1</code>');
-    
-    // Numbered lists: 1. item, 2. item, etc.
-    html = html.replace(/^(\d+)\.\s+(.+)$/gm, '<div class="list-item numbered">$1. $2</div>');
-    
-    // Bullet lists: - item or * item
-    html = html.replace(/^[-*]\s+(.+)$/gm, '<div class="list-item">• $1</div>');
-    
-    // Line breaks (convert remaining newlines to <br>)
-    html = html.replace(/\n/g, '<br>');
-    
-    return html;
-}
+// Auto-resize textarea
+chatInput.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+    sendBtn.disabled = this.value.trim() === '';
+});
 
-// Add message to chat
-function addMessage(text, type = 'user') {
-    const messagesContainer = document.getElementById('chat-messages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}`;
-    
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = type === 'user' ? 'U' : 'AI';
-    
-    const content = document.createElement('div');
-    content.className = 'message-content';
-    
-    // Use innerHTML for AI messages to render markdown, textContent for user messages for security
-    if (type === 'ai') {
-        content.innerHTML = markdownToHtml(text);
-    } else {
-        content.textContent = text;
+// Send on Enter (Shift+Enter for new line)
+chatInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
     }
-    
-    messageDiv.appendChild(avatar);
-    messageDiv.appendChild(content);
-    messagesContainer.appendChild(messageDiv);
-    
-    // Render LaTeX for AI messages after adding to DOM
-    if (type === 'ai') {
-        setTimeout(() => {
-            if (typeof renderMathInElement !== 'undefined') {
-                renderMathInElement(content, {
-                    delimiters: [
-                        {left: '$$', right: '$$', display: true},
-                        {left: '$', right: '$', display: false},
-                        {left: '\\[', right: '\\]', display: true},
-                        {left: '\\(', right: '\\)', display: false}
-                    ],
-                    throwOnError: false
-                });
+});
+
+sendBtn.addEventListener('click', sendMessage);
+
+// PDF Upload
+uploadBtn.addEventListener('click', () => pdfInput.click());
+pdfInput.addEventListener('change', handleFileUpload);
+
+
+// --- 4. CORE FUNCTIONS ---
+
+async function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    // UI: Add User Message
+    addMessage(text, 'user');
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    sendBtn.disabled = true;
+    setLoading(true);
+
+    try {
+        // Collect current graph state to give context to AI
+        const currentExpressions = calculator.getExpressions();
+
+        // Prepare payload
+        const payload = {
+            message: text,
+            sessionId: sessionId,
+            history: conversationHistory,
+            currentExpressions: currentExpressions
+        };
+
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // UI: Add AI Response
+            addMessage(data.chatResponse, 'ai');
+
+            // Execute Graph Commands
+            if (data.graphCommands && data.graphCommands.length > 0) {
+                executeGraphCommands(data.graphCommands);
             }
-        }, 10);
+
+            // Update History
+            conversationHistory.push({ role: 'user', content: text });
+            conversationHistory.push({ role: 'model', content: data.chatResponse });
+
+            updateConnectionStatus(false);
+        } else {
+            addMessage(`Error: ${data.chatResponse || 'Unknown error'}`, 'ai error');
+            updateConnectionStatus(true);
+        }
+
+    } catch (error) {
+        console.error('Chat Error:', error);
+        addMessage("Sorry, I couldn't connect to the server. Please check your connection.", 'ai error');
+        updateConnectionStatus(true);
+    } finally {
+        setLoading(false);
     }
-    
-    // Scroll to bottom
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Add error message
-function addErrorMessage(text) {
-    const messagesContainer = document.getElementById('chat-messages');
+function addMessage(markdownText, sender) {
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'message error';
-    
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = '!';
-    avatar.style.background = '#dc2626';
-    
-    const content = document.createElement('div');
-    content.className = 'message-content';
-    content.textContent = text;
-    
-    messageDiv.appendChild(avatar);
-    messageDiv.appendChild(content);
+    messageDiv.className = `message ${sender}`;
+
+    // Avatar
+    const avatarDiv = document.createElement('div');
+    avatarDiv.className = 'message-avatar';
+    const img = document.createElement('img');
+    img.src = sender === 'user'
+        ? 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff' // Placeholder for user
+        : '/static/axiom_icon.svg'; // AI Icon
+    avatarDiv.appendChild(img);
+
+    // Content
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+
+    // Parse Markdown & Math
+    if (sender === 'ai' || sender === 'ai error') {
+        // 1. Render Markdown
+        let htmlContent = marked.parse(markdownText);
+        contentDiv.innerHTML = htmlContent;
+
+        // 2. Render Math (KaTeX)
+        renderMathInElement(contentDiv, {
+            delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false },
+                { left: '\\(', right: '\\)', display: false },
+                { left: '\\[', right: '\\]', display: true }
+            ],
+            throwOnError: false
+        });
+
+        // 3. Highlight Code
+        contentDiv.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block);
+        });
+
+    } else {
+        contentDiv.textContent = markdownText;
+    }
+
+    messageDiv.appendChild(avatarDiv);
+    messageDiv.appendChild(contentDiv);
+
     messagesContainer.appendChild(messageDiv);
-    
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Show/hide loading indicator
-function setLoading(isLoading) {
-    const loadingIndicator = document.getElementById('loading-indicator');
-    const sendBtn = document.getElementById('send-btn');
-    const chatInput = document.getElementById('chat-input');
-    
-    if (isLoading) {
-        loadingIndicator.style.display = 'flex';
-        sendBtn.disabled = true;
-        chatInput.disabled = true;
-    } else {
-        loadingIndicator.style.display = 'none';
-        sendBtn.disabled = false;
-        chatInput.disabled = false;
-    }
-}
-
-// Execute graph commands
 function executeGraphCommands(commands) {
-    if (!commands || !Array.isArray(commands)) {
-        console.log('No graph commands to execute');
-        return;
-    }
-    
-    console.log('Executing graph commands:', commands);
-    
-    commands.forEach(cmd => {
+    const validCommands = commands.filter(c => c && c.command);
+    if (validCommands.length === 0) return;
+
+    console.log("Executing Commands:", validCommands);
+
+    validCommands.forEach(cmd => {
         try {
             switch (cmd.command) {
                 case 'setExpression':
                     calculator.setExpression(cmd.params);
                     break;
-                    
                 case 'removeExpression':
-                    calculator.removeExpression(cmd.params);
+                    if (cmd.params.id) calculator.removeExpression(cmd.params);
                     break;
-                    
                 case 'setMathBounds':
                     calculator.setMathBounds(cmd.params);
                     break;
-                    
-                case 'clearExpressions':
-                    // Get all expressions and remove them
-                    const state = calculator.getState();
-                    state.expressions.list.forEach(expr => {
-                        calculator.removeExpression({ id: expr.id });
-                    });
-                    break;
-                    
                 case 'setBlank':
+                case 'clearExpressions':
                     calculator.setBlank();
                     break;
-                    
                 default:
-                    console.warn('Unknown graph command:', cmd.command);
+                    console.warn("Unknown command:", cmd.command);
             }
-        } catch (error) {
-            console.error('Error executing graph command:', cmd, error);
+        } catch (e) {
+            console.error("Graph Command Error:", e);
         }
     });
 }
 
-// Send message to backend
-async function sendMessage() {
-    const chatInput = document.getElementById('chat-input');
-    const message = chatInput.value.trim();
-    
-    if (!message) return;
-    
-    // Add user message to chat
-    addMessage(message, 'user');
-    conversationHistory.push({ role: 'user', content: message });
-    
-    // Clear input
-    chatInput.value = '';
-    chatInput.style.height = 'auto';
-    
-    // Show loading
-    setLoading(true);
-    
+// --- 5. PDF UPLOAD LOGIC ---
+async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const statusDiv = document.getElementById('upload-status');
+    statusDiv.textContent = "Uploading & Analyzing PDF...";
+    statusDiv.style.color = "var(--accent)";
+
+    const formData = new FormData();
+    formData.append('pdf', file);
+    formData.append('sessionId', sessionId);
+
     try {
-        // Get current graph state
-        const graphState = calculator.getState();
-        const currentExpressions = graphState.expressions.list
-            .filter(expr => expr.type === 'expression' && expr.latex)
-            .map(expr => ({
-                id: expr.id,
-                latex: expr.latex,
-                color: expr.color
-            }));
-        
-        const response = await fetch('/api/chat', {
+        const res = await fetch('/api/upload_pdf', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: message,
-                sessionId: sessionId,
-                history: conversationHistory.slice(-10), // Send last 10 messages
-                currentExpressions: currentExpressions // Send current graph state
-            })
+            body: formData
         });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        console.log('=== AI RESPONSE ===');
-        console.log('Chat response:', data.chatResponse?.substring(0, 100) + '...');
-        console.log('Graph commands count:', data.graphCommands?.length || 0);
-        console.log('===================');
-        
-        // Display AI response
-        if (data.chatResponse) {
-            addMessage(data.chatResponse, 'ai');
-            conversationHistory.push({ role: 'assistant', content: data.chatResponse });
-        }
-        
-        // Execute graph commands
-        if (data.graphCommands && data.graphCommands.length > 0) {
-            executeGraphCommands(data.graphCommands);
+        const data = await res.json();
+
+        if (data.success) {
+            statusDiv.textContent = `✓ Uploaded: ${file.name} (${data.chunks} chunks)`;
+            statusDiv.style.color = "#10b981";
+            addMessage(`I've uploaded **${file.name}**. You can now ask questions about its content!`, 'ai');
+            conversationHistory.push({ role: 'system', content: `User uploaded PDF: ${file.name}` });
         } else {
-            console.log('No graph commands to execute');
+            statusDiv.textContent = `Error: ${data.error}`;
+            statusDiv.style.color = "#ef4444";
         }
-        
-    } catch (error) {
-        console.error('Error sending message:', error);
-        addErrorMessage('Sorry, something went wrong. Please try again.');
-    } finally {
-        setLoading(false);
+    } catch (err) {
+        console.error(err);
+        statusDiv.textContent = "Upload failed.";
+        statusDiv.style.color = "#ef4444";
+    }
+}
+
+// --- 6. UTILITIES ---
+function setLoading(isLoading) {
+    const indicator = document.getElementById('loading-indicator');
+    if (isLoading) indicator.style.display = 'flex';
+    else indicator.style.display = 'none';
+
+    // Don't auto-focus on mobile to prevent keyboard jumping
+    if (!/Android|iPhone/i.test(navigator.userAgent)) {
         chatInput.focus();
     }
 }
 
-// Handle PDF upload
-async function handlePdfUpload(file) {
-    const uploadStatus = document.getElementById('upload-status');
-    uploadStatus.textContent = 'Uploading...';
-    
-    const formData = new FormData();
-    formData.append('pdf', file);
-    formData.append('sessionId', sessionId);
-    
-    try {
-        const response = await fetch('/api/upload_pdf', {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            uploadStatus.textContent = `✓ ${file.name} uploaded`;
-            uploadStatus.style.color = '#059669';
-            addMessage(`PDF "${file.name}" has been uploaded and processed. You can now ask questions about its content!`, 'ai');
-            
-            // Clear status after 3 seconds
-            setTimeout(() => {
-                uploadStatus.textContent = '';
-            }, 3000);
-        } else {
-            throw new Error(data.error || 'Upload failed');
-        }
-        
-    } catch (error) {
-        console.error('Error uploading PDF:', error);
-        uploadStatus.textContent = '✗ Upload failed';
-        uploadStatus.style.color = '#dc2626';
-        addErrorMessage('Failed to upload PDF. Please try again.');
+function updateConnectionStatus(isError) {
+    const badge = document.getElementById('connection-status');
+    const text = badge.querySelector('.status-text');
+    if (isError) {
+        badge.classList.remove('connected');
+        badge.style.borderColor = '#ef4444';
+        badge.style.color = '#ef4444';
+        text.textContent = 'Offline';
+    } else {
+        badge.classList.add('connected');
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+        badge.style.color = '#10b981';
+        text.textContent = 'Online';
     }
 }
-
-// Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Desmos
-    initializeCalculator();
-    
-    // Send button click
-    const sendBtn = document.getElementById('send-btn');
-    sendBtn.addEventListener('click', sendMessage);
-    
-    // Enter key to send (Shift+Enter for new line)
-    const chatInput = document.getElementById('chat-input');
-    chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-    
-    // Auto-resize textarea
-    chatInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-    });
-    
-    // Upload button click
-    const uploadBtn = document.getElementById('upload-btn');
-    const pdfUpload = document.getElementById('pdf-upload');
-    
-    uploadBtn.addEventListener('click', () => {
-        pdfUpload.click();
-    });
-    
-    pdfUpload.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') {
-            handlePdfUpload(file);
-        } else if (file) {
-            addErrorMessage('Please upload a valid PDF file.');
-        }
-        // Reset input
-        e.target.value = '';
-    });
-    
-    // Welcome message
-    setTimeout(() => {
-        addMessage('Hello! I\'m Axiom Canvas, your AI math visualizer. Ask me to plot functions, explain concepts, or help with math problems. I can use the graph to show you visual explanations!', 'ai');
-    }, 500);
-});
