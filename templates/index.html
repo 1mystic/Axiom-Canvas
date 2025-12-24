@@ -1,41 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Axiom Canvas - AI Math Visualizer</title>
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='axiom_icon.svg') }}">
-    
+
     <!-- Google Fonts: Outfit for headings, Inter for body, JetBrains Mono for code -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    
+
     <!-- KaTeX for LaTeX rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-    
+
     <!-- Marked.js for Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    
+
     <!-- Highlight.js for Code Highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    
+
     <!-- Desmos API v1.7 -->
     <script src="https://www.desmos.com/api/v1.7/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
 </head>
+
 <body>
     <div class="container">
         <!-- Left Panel: Graphing Calculator -->
         <div class="panel" id="calculator-panel">
             <div id="calculator"></div>
         </div>
+
+        <!-- Resizable Divider -->
+        <div id="drag-handle"></div>
 
         <!-- Right Panel: Chat Interface -->
         <div class="panel" id="chat-panel">
@@ -58,7 +66,8 @@
             <div class="upload-section">
                 <input type="file" id="pdf-upload" accept=".pdf" style="display: none;">
                 <button id="upload-btn" class="upload-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="17 8 12 3 7 8"></polyline>
                         <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -76,7 +85,8 @@
                     </div>
                     <div class="message-content">
                         <strong>Welcome to Axiom Canvas! </strong>
-                        <p>I can help you visualize math concepts, plot complex functions, and solve equations interactively.</p>
+                        <p>I can help you visualize math concepts, plot complex functions, and solve equations
+                            interactively.</p>
                         <p>Try asking:</p>
                         <ul>
                             <li>"Plot a sine wave and its derivative"</li>
@@ -90,21 +100,18 @@
             <!-- Chat Input -->
             <div class="chat-input-container">
                 <div class="input-wrapper">
-                    <textarea 
-                        id="chat-input" 
-                        class="chat-input" 
-                        placeholder="Ask a math question..."
-                        rows="1"
-                    ></textarea>
+                    <textarea id="chat-input" class="chat-input" placeholder="Ask a math question..."
+                        rows="1"></textarea>
                     <button id="send-btn" class="send-btn" disabled>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="22" y1="2" x2="11" y2="13"></line>
                             <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                         </svg>
                     </button>
                 </div>
             </div>
-            
+
             <!-- Loading Overlay (within chat) -->
             <div id="loading-indicator" class="loading-indicator" style="display: none;">
                 <div class="typing-dots">
@@ -117,4 +124,5 @@
 
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
+
 </html>

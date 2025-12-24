@@ -2,16 +2,57 @@
 
 // --- 1. INITIALIZE DESMOS CALCULATOR ---
 const elt = document.getElementById('calculator');
-const calculator = Desmos.GraphingCalculator(elt, {
+let calculator; // Declare calculator here, initialize later
+
+// --- 5. INITIALIZATION ---
+
+// Resizable Divider Logic
+const dragHandle = document.getElementById('drag-handle');
+const chatPanel = document.getElementById('chat-panel');
+let isDragging = false;
+
+dragHandle.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    dragHandle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault(); // Prevent text selection
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    // Width = Total Window Width - Mouse X Position
+    // We resize form the right, so:
+    let newWidth = window.innerWidth - e.clientX;
+
+    // Bounds Check (CSS handles min/max-width too, but good to clamp here)
+    if (newWidth < 300) newWidth = 300;
+    if (newWidth > window.innerWidth * 0.7) newWidth = window.innerWidth * 0.7;
+
+    chatPanel.style.width = `${newWidth}px`;
+
+    // Notify Desmos to resize
+    if (calculator) calculator.resize();
+});
+
+document.addEventListener('mouseup', () => {
+    if (isDragging) {
+        isDragging = false;
+        dragHandle.classList.remove('dragging');
+        document.body.style.cursor = 'default';
+        if (calculator) calculator.resize();
+    }
+});
+
+// Init
+calculator = Desmos.GraphingCalculator(elt, {
     keypad: true,
-    graphpaper: true,
     expressions: true,
     settingsMenu: true,
     zoomButtons: true,
-    expressionsCollapsed: false,
-    invertedColors: true, // Dark mode for Desmos
+    invertedColors: true, // Dark mode default
     xAxisLabel: 'x',
-    yAxisLabel: 'y',
+    yAxisLabel: 'y'
 });
 
 // Configure default view
@@ -109,7 +150,7 @@ async function sendMessage() {
 
             updateConnectionStatus(false);
         } else {
-            addMessage(`Error: ${data.chatResponse || 'Unknown error'}`, 'ai error');
+            addMessage(`Error: ${data.chatResponse || 'Unknown error'} `, 'ai error');
             updateConnectionStatus(true);
         }
 
@@ -124,7 +165,7 @@ async function sendMessage() {
 
 function addMessage(markdownText, sender) {
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${sender}`;
+    messageDiv.className = `message ${sender} `;
 
     // Avatar
     const avatarDiv = document.createElement('div');
