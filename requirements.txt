@@ -3,5 +3,5 @@ python-dotenv
 google-genai
 pymupdf
 numpy
-faiss-cpu
 openai
+#faiss-cpu

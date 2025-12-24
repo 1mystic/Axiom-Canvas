@@ -33,12 +33,8 @@ except ImportError:
     PDF_SUPPORT = False
     print("PDF Support disabled")
 
-try:
-    import faiss
-    FAISS_SUPPORT = True
-except ImportError:
-    FAISS_SUPPORT = False
-    print("FAISS Support disabled")
+# FAISS removed for Vercel optimization (using numpy dot product instead)
+FAISS_SUPPORT = False
 
 app = Flask(__name__, 
             template_folder=str(parent_dir / 'templates'),
@@ -270,29 +266,40 @@ def chat():
         # traceback.print_exc()
         return jsonify({'chatResponse': f"Error: {str(e)}", 'graphCommands': []}), 500
 
-# --- RAG HELPERS ---
+# --- RAG HELPERS (NumPy Optimized) ---
 def retrieve_relevant_context(sid, query):
-    if not gemini_client or not is_healthy('gemini'): return "" # Require Gemini for embeddings for now
+    if not gemini_client or not is_healthy('gemini'): return ""
     try:
-        idx = session_data[sid].get('faiss_index')
+        # Get stored embeddings and chunks
+        embeddings = session_data[sid].get('embeddings') # Shape: (N, 768)
         chunks = session_data[sid].get('text_chunks')
+        if embeddings is None or not chunks: return ""
+
+        # Embed query
         resp = gemini_client.models.embed_content(model="text-embedding-004", contents=query)
-        vec = np.array([resp.embeddings[0].values], dtype='float32')
-        _, indices = idx.search(vec, 3)
-        return "\n\n".join([chunks[i] for i in indices[0] if i < len(chunks)])
-    except: return ""
+        query_vec = np.array(resp.embeddings[0].values, dtype='float32') # Shape: (768,)
 
-@app.route('/')
-def index(): return render_template('index.html')
+        # Cosine Similarity (Dot product since normalized)
+        # scores = dot(embeddings, query_vec)
+        scores = np.dot(embeddings, query_vec)
+        
+        # Get top 3 indices
+        top_k = 3
+        if len(scores) < top_k: top_k = len(scores)
+        
+        # Argsort returns indices of sorted array (ascending), so we take last k and reverse
+        top_indices = np.argsort(scores)[-top_k:][::-1]
+        
+        return "\n\n".join([chunks[i] for i in top_indices])
+    except Exception as e:
+        print(f"RAG Error: {e}")
+        return ""
 
-@app.route('/favicon.ico')
-def favicon(): return send_from_directory(os.path.join(app.root_path, '../static'), 'favicon.ico')
-
-# Basic placeholder for PDF upload (since logic is large and standard)
+# PDF Upload - NumPy Version
 @app.route('/api/upload_pdf', methods=['POST'])
 def upload_pdf():
     try:
-        if not PDF_SUPPORT or not FAISS_SUPPORT:
+        if not PDF_SUPPORT:
             return jsonify({'success': False, 'error': 'PDF dependencies missing.'}), 500
         
         if 'pdf' not in request.files: return jsonify({'success': False, 'error': 'No file'}), 400
@@ -307,11 +314,12 @@ def upload_pdf():
             text_chunks = extract_text_from_pdf(pdf_path)
             if not text_chunks: return jsonify({'success': False, 'error': 'No text extracted'}), 400
             
+            # Create Embeddings (NumPy array)
             embeddings, chunks = create_embeddings(text_chunks)
-            index = create_faiss_index(embeddings)
             
             if session_id not in session_data: session_data[session_id] = {}
-            session_data[session_id]['faiss_index'] = index
+            # Store raw embeddings instead of FAISS index
+            session_data[session_id]['embeddings'] = embeddings
             session_data[session_id]['text_chunks'] = chunks
             
             return jsonify({'success': True, 'chunks': len(chunks)})
@@ -341,11 +349,6 @@ def create_embeddings(text_chunks):
             valid_chunks.append(chunk)
         except: continue
     return np.array(embeddings, dtype='float32'), valid_chunks
-
-def create_faiss_index(embeddings):
-    idx = faiss.IndexFlatL2(embeddings.shape[1])
-    idx.add(embeddings)
-    return idx
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
