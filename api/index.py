@@ -19,6 +19,8 @@ except ImportError:
     OPENAI_SUPPORT = False
     print("OpenAI Support disabled (openai package not found)")
 
+# Ensure imports work on Render (Gunicorn) and Local
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import axiom_brain
 from dotenv import load_dotenv
 parent_dir = Path(__file__).parent.parent
