@@ -114,5 +114,5 @@ vercel --prod
 
 ---
 
-**DEVELOPED BY [YOUR NAME]**
+**DEVELOPED BY 1mystic**
 [LINKEDIN](https://linkedin.com/in/atharvkhare) | [PORTFOLIO](https://atharvk.me) | [EMAIL](mailto:atharvkhare18@email.com)
