@@ -68,9 +68,10 @@ if OPENAI_SUPPORT and os.environ.get('OPENAI_API_KEY'):
     except: pass
 
 # Model Pools (Prioritized)
-MODELS_GEMINI = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash']
+# gemini-2.5-flash is now the stable model; 2.0 models are deprecated per Gemini API docs
+MODELS_GEMINI = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
 MODELS_OPENROUTER = [
-    'google/gemini-2.0-flash-exp:free', 
+    'google/gemini-2.0-flash-lite-001',           # stable, confirmed in aipipe docs
     'meta-llama/llama-3.3-70b-instruct:free',
     'deepseek/deepseek-r1-distill-llama-70b:free',
     'microsoft/phi-3-medium-128k-instruct:free'
@@ -202,7 +203,7 @@ def generate_with_user_key(agnostic_messages, user_config):
 
     if provider == 'gemini':
         if not model:
-            model = 'gemini-2.0-flash'
+            model = 'gemini-2.5-flash'
         user_gemini_client = genai.Client(api_key=api_key)
         gemini_contents = [
             types.Content(
@@ -225,13 +226,14 @@ def generate_with_user_key(agnostic_messages, user_config):
         if not OPENAI_SUPPORT:
             raise Exception("OpenAI package not installed on server.")
 
-        # aipipe routing: OpenRouter-format models (provider/model) use /openrouter/v1;
-        # plain OpenAI model names use /openai/v1. Default to OpenRouter endpoint.
+        # aipipe routing per https://aipipe.org docs:
+        #   /openrouter/v1 → models in "provider/model" format  (e.g. "openai/gpt-4.1-nano", "google/gemini-2.0-flash-lite-001")
+        #   /openai/v1     → plain OpenAI model names            (e.g. "gpt-4o-mini", "gpt-4.1-nano")
+        # Both endpoints accept the AiPipe token as "Authorization: Bearer <token>".
         if provider == 'aipipe':
             if not model:
                 model = 'openai/gpt-4.1-nano'
-            # Plain OpenAI model names (no slash) route through /openai/v1
-            base_url = 'https://aipipe.org/openai/v1' if '/' not in model else 'https://aipipe.org/openrouter/v1'
+            base_url = 'https://aipipe.org/openrouter/v1' if '/' in model else 'https://aipipe.org/openai/v1'
         elif provider == 'openrouter':
             if not model:
                 model = 'openai/gpt-4o-mini'

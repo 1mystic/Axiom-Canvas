@@ -340,55 +340,70 @@ function updateConnectionStatus(isError) {
 let userApiConfig = null;
 
 const PROVIDER_MODELS = {
+    // Native Gemini API — model names per https://ai.google.dev/gemini-api/docs/models
     gemini: [
-        { value: '',                   label: '— Default (gemini-2.0-flash) —' },
-        { value: 'gemini-2.0-flash',   label: 'Gemini 2.0 Flash' },
-        { value: 'gemini-2.5-flash',   label: 'Gemini 2.5 Flash' },
-        { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
-        { value: 'gemini-1.5-pro',     label: 'Gemini 1.5 Pro' },
-        { value: '__custom__',         label: 'Custom model…' },
+        { value: '',                        label: '— Default (gemini-2.5-flash) —' },
+        { value: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash ★ Recommended' },
+        { value: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash-Lite (fastest)' },
+        { value: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro (most capable)' },
+        { value: 'gemini-2.0-flash',        label: 'Gemini 2.0 Flash (deprecated)' },
+        { value: '__custom__',              label: 'Custom model…' },
     ],
+    // Native OpenAI API — model names per https://platform.openai.com/docs/models
     openai: [
         { value: '',              label: '— Default (gpt-4o-mini) —' },
         { value: 'gpt-4o-mini',  label: 'GPT-4o Mini' },
         { value: 'gpt-4o',       label: 'GPT-4o' },
-        { value: 'gpt-4.1',      label: 'GPT-4.1' },
+        { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano (fastest/cheapest)' },
         { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
-        { value: 'o1-mini',      label: 'o1-mini' },
+        { value: 'gpt-4.1',      label: 'GPT-4.1' },
+        { value: 'o4-mini',      label: 'o4-mini (reasoning)' },
         { value: '__custom__',   label: 'Custom model…' },
     ],
+    // Native Anthropic API — model IDs per https://docs.anthropic.com/en/about-claude/models/overview
     anthropic: [
-        { value: '',                   label: '— Default (claude-sonnet-4-6) —' },
-        { value: 'claude-sonnet-4-6',  label: 'Claude Sonnet 4.6' },
-        { value: 'claude-opus-4-6',    label: 'Claude Opus 4.6' },
-        { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
-        { value: '__custom__',         label: 'Custom model…' },
+        { value: '',                         label: '— Default (claude-sonnet-4-6) —' },
+        { value: 'claude-sonnet-4-6',        label: 'Claude Sonnet 4.6 ★ Recommended' },
+        { value: 'claude-opus-4-6',          label: 'Claude Opus 4.6 (most capable)' },
+        { value: 'claude-haiku-4-5',         label: 'Claude Haiku 4.5 (fastest)' },
+        { value: '__custom__',               label: 'Custom model…' },
     ],
+    // OpenRouter — provider/model format per https://openrouter.ai/docs
     openrouter: [
-        { value: '',                                              label: '— Default (gpt-4o) —' },
-        { value: 'google/gemini-2.0-flash-exp:free',             label: 'Gemini 2.0 Flash (Free)' },
+        { value: '',                                              label: '— Default (openai/gpt-4o-mini) —' },
+        // Free models
+        { value: 'google/gemini-2.0-flash-lite-001',             label: 'Gemini 2.0 Flash Lite (Free)' },
         { value: 'meta-llama/llama-3.3-70b-instruct:free',       label: 'Llama 3.3 70B (Free)' },
         { value: 'deepseek/deepseek-r1-distill-llama-70b:free',  label: 'DeepSeek R1 Distill 70B (Free)' },
         { value: 'microsoft/phi-3-medium-128k-instruct:free',    label: 'Phi-3 Medium (Free)' },
-        { value: 'openai/gpt-4o',                                label: 'GPT-4o (Paid)' },
+        // Paid models
+        { value: 'openai/gpt-4.1-nano',                          label: 'GPT-4.1 Nano (Paid)' },
         { value: 'openai/gpt-4o-mini',                           label: 'GPT-4o Mini (Paid)' },
-        { value: 'anthropic/claude-3-5-sonnet',                  label: 'Claude 3.5 Sonnet (Paid)' },
+        { value: 'openai/gpt-4o',                                label: 'GPT-4o (Paid)' },
+        { value: 'google/gemini-2.5-flash',                      label: 'Gemini 2.5 Flash (Paid)' },
+        { value: 'anthropic/claude-3.5-sonnet',                  label: 'Claude 3.5 Sonnet (Paid)' },
         { value: '__custom__',                                   label: 'Custom model…' },
     ],
     aipipe: [
-        // Models via aipipe.org — use openrouter format (provider/model) for OpenRouter proxy,
-        // or plain names (gpt-4o-mini) for the OpenAI proxy. See aipipe.org/playground.
-        { value: '',                                           label: '— Default (openai/gpt-4.1-nano) —' },
-        { value: 'openai/gpt-4.1-nano',                       label: 'GPT-4.1 Nano ★ Recommended' },
-        { value: 'openai/gpt-4o-mini',                        label: 'GPT-4o Mini' },
-        { value: 'openai/gpt-4o',                             label: 'GPT-4o' },
-        { value: 'google/gemini-2.0-flash-lite-001',          label: 'Gemini 2.0 Flash Lite' },
-        { value: 'google/gemini-2.5-flash-preview-05-20',     label: 'Gemini 2.5 Flash Preview' },
-        { value: 'anthropic/claude-3-5-sonnet',               label: 'Claude 3.5 Sonnet' },
-        { value: 'anthropic/claude-3-haiku',                  label: 'Claude 3 Haiku' },
-        { value: 'meta-llama/llama-3.3-70b-instruct:free',    label: 'Llama 3.3 70B (Free)' },
-        { value: 'deepseek/deepseek-r1-distill-llama-70b:free', label: 'DeepSeek R1 Distill 70B (Free)' },
-        { value: '__custom__',                                label: 'Custom model…' },
+        // AiPipe token from aipipe.org/login — provider/model format → /openrouter/v1.
+        // Plain OpenAI names (no slash) → /openai/v1. See aipipe.org/playground for all models.
+        { value: '',                                              label: '— Default (openai/gpt-4.1-nano) —' },
+        // OpenAI via OpenRouter proxy
+        { value: 'openai/gpt-4.1-nano',                          label: 'GPT-4.1 Nano ★ Recommended' },
+        { value: 'openai/gpt-4.1-mini',                          label: 'GPT-4.1 Mini' },
+        { value: 'openai/gpt-4o-mini',                           label: 'GPT-4o Mini' },
+        { value: 'openai/gpt-4o',                                label: 'GPT-4o' },
+        // Google via OpenRouter proxy (confirmed IDs per aipipe docs)
+        { value: 'google/gemini-2.0-flash-lite-001',             label: 'Gemini 2.0 Flash Lite' },
+        { value: 'google/gemini-2.5-flash',                      label: 'Gemini 2.5 Flash' },
+        { value: 'google/gemini-2.5-pro',                        label: 'Gemini 2.5 Pro' },
+        // Anthropic via OpenRouter proxy
+        { value: 'anthropic/claude-3.5-sonnet',                  label: 'Claude 3.5 Sonnet' },
+        { value: 'anthropic/claude-3.5-haiku',                   label: 'Claude 3.5 Haiku' },
+        // Free models via OpenRouter proxy
+        { value: 'meta-llama/llama-3.3-70b-instruct:free',       label: 'Llama 3.3 70B (Free)' },
+        { value: 'deepseek/deepseek-r1-distill-llama-70b:free',  label: 'DeepSeek R1 Distill 70B (Free)' },
+        { value: '__custom__',                                    label: 'Custom model…' },
     ],
 };
 
