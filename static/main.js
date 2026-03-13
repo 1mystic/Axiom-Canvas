@@ -121,7 +121,10 @@ async function sendMessage() {
             message: text,
             sessionId: sessionId,
             history: conversationHistory,
-            currentExpressions: currentExpressions
+            currentExpressions: currentExpressions,
+            ...(userApiConfig && userApiConfig.apiKey
+                ? { userApiConfig: { provider: userApiConfig.provider, model: userApiConfig.model, apiKey: userApiConfig.apiKey } }
+                : {})
         };
 
         const response = await fetch('/api/chat', {
@@ -332,3 +335,126 @@ function updateConnectionStatus(isError) {
         text.textContent = 'Online';
     }
 }
+
+// --- 7. API KEY SETTINGS ---
+
+let userApiConfig = null;
+
+const MODEL_HINTS = {
+    gemini:     'e.g. gemini-2.0-flash, gemini-1.5-pro, gemini-2.5-flash',
+    openai:     'e.g. gpt-4o, gpt-4o-mini, o1-mini',
+    anthropic:  'e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5',
+    openrouter: 'e.g. google/gemini-2.0-flash-exp:free, meta-llama/llama-3.3-70b-instruct:free',
+    aipipe:     'e.g. openai/gpt-4.1-nano, openai/gpt-4o, anthropic/claude-3-5-sonnet'
+};
+
+function loadApiConfig() {
+    try {
+        const saved = localStorage.getItem('axiom_api_config');
+        if (saved) {
+            userApiConfig = JSON.parse(saved);
+            updateApiKeyIndicator();
+        }
+    } catch (e) { userApiConfig = null; }
+}
+
+function saveApiConfig(config) {
+    try { localStorage.setItem('axiom_api_config', JSON.stringify(config)); } catch (e) {}
+}
+
+function clearApiConfig() {
+    try { localStorage.removeItem('axiom_api_config'); } catch (e) {}
+    userApiConfig = null;
+    updateApiKeyIndicator();
+}
+
+function updateApiKeyIndicator() {
+    const btn = document.getElementById('api-key-btn');
+    const banner = document.getElementById('api-active-banner');
+    if (!btn) return;
+    if (userApiConfig && userApiConfig.apiKey) {
+        btn.classList.add('active');
+        if (banner) banner.style.display = 'flex';
+    } else {
+        btn.classList.remove('active');
+        if (banner) banner.style.display = 'none';
+    }
+}
+
+function setupApiKeyModal() {
+    const btn       = document.getElementById('api-key-btn');
+    const overlay   = document.getElementById('api-modal-overlay');
+    const closeBtn  = document.getElementById('api-modal-close');
+    const saveBtn   = document.getElementById('api-key-save');
+    const clearBtn  = document.getElementById('api-key-clear');
+    const providerSel = document.getElementById('api-provider');
+    const modelInput  = document.getElementById('api-model');
+    const keyInput    = document.getElementById('api-key-input');
+    const modelHint   = document.getElementById('model-hint');
+
+    function applyModelHint(provider) {
+        if (MODEL_HINTS[provider]) {
+            modelHint.textContent = '(' + MODEL_HINTS[provider].split(',')[0] + ')';
+            modelInput.placeholder = MODEL_HINTS[provider].split(',')[0].replace('e.g. ', '');
+        } else {
+            modelHint.textContent = '';
+            modelInput.placeholder = 'Leave blank for default';
+        }
+    }
+
+    // Open
+    btn.addEventListener('click', () => {
+        if (userApiConfig) {
+            providerSel.value = userApiConfig.provider || '';
+            modelInput.value  = userApiConfig.model   || '';
+            keyInput.value    = userApiConfig.apiKey  || '';
+            applyModelHint(userApiConfig.provider || '');
+        }
+        updateApiKeyIndicator();
+        overlay.classList.add('visible');
+    });
+
+    // Close
+    closeBtn.addEventListener('click', () => overlay.classList.remove('visible'));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('visible'); });
+
+    // Provider change
+    providerSel.addEventListener('change', () => applyModelHint(providerSel.value));
+
+    // Save
+    saveBtn.addEventListener('click', () => {
+        const provider = providerSel.value;
+        const model    = modelInput.value.trim();
+        const apiKey   = keyInput.value.trim();
+
+        if (!provider) {
+            clearApiConfig();
+            overlay.classList.remove('visible');
+            return;
+        }
+        if (!apiKey) {
+            keyInput.focus();
+            keyInput.style.borderColor = '#ef4444';
+            setTimeout(() => keyInput.style.borderColor = '', 1500);
+            return;
+        }
+        userApiConfig = { provider, model, apiKey };
+        saveApiConfig(userApiConfig);
+        updateApiKeyIndicator();
+        overlay.classList.remove('visible');
+    });
+
+    // Clear
+    clearBtn.addEventListener('click', () => {
+        clearApiConfig();
+        providerSel.value = '';
+        modelInput.value  = '';
+        keyInput.value    = '';
+        applyModelHint('');
+        overlay.classList.remove('visible');
+    });
+}
+
+// Init API key feature
+loadApiConfig();
+setupApiKeyModal();

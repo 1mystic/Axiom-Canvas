@@ -229,7 +229,7 @@ def generate_with_user_key(agnostic_messages, user_config):
 
         base_urls = {
             'openrouter': 'https://openrouter.ai/api/v1',
-            'aipipe': 'https://api.aipipe.org/v1'
+            'aipipe': 'https://aipipe.org/openrouter/v1'
         }
         kwargs = {'api_key': api_key}
         if provider in base_urls:
