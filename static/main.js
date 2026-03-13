@@ -158,11 +158,10 @@ async function sendMessage() {
         }
 
     } catch (error) {
+        removeThinking(thinkingId);
         console.error('Chat Error:', error);
         addMessage("Sorry, I couldn't connect to the server. Please check your connection.", 'ai error');
         updateConnectionStatus(true);
-    } finally {
-        setLoading(false);
     }
 }
 
@@ -340,12 +339,53 @@ function updateConnectionStatus(isError) {
 
 let userApiConfig = null;
 
-const MODEL_HINTS = {
-    gemini:     'e.g. gemini-2.0-flash, gemini-1.5-pro, gemini-2.5-flash',
-    openai:     'e.g. gpt-4o, gpt-4o-mini, o1-mini',
-    anthropic:  'e.g. claude-sonnet-4-6, claude-opus-4-6, claude-haiku-4-5',
-    openrouter: 'e.g. google/gemini-2.0-flash-exp:free, meta-llama/llama-3.3-70b-instruct:free',
-    aipipe:     'e.g. openai/gpt-4.1-nano, openai/gpt-4o, anthropic/claude-3-5-sonnet'
+const PROVIDER_MODELS = {
+    gemini: [
+        { value: '',                   label: '— Default (gemini-2.0-flash) —' },
+        { value: 'gemini-2.0-flash',   label: 'Gemini 2.0 Flash' },
+        { value: 'gemini-2.5-flash',   label: 'Gemini 2.5 Flash' },
+        { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
+        { value: 'gemini-1.5-pro',     label: 'Gemini 1.5 Pro' },
+        { value: '__custom__',         label: 'Custom model…' },
+    ],
+    openai: [
+        { value: '',              label: '— Default (gpt-4o-mini) —' },
+        { value: 'gpt-4o-mini',  label: 'GPT-4o Mini' },
+        { value: 'gpt-4o',       label: 'GPT-4o' },
+        { value: 'gpt-4.1',      label: 'GPT-4.1' },
+        { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+        { value: 'o1-mini',      label: 'o1-mini' },
+        { value: '__custom__',   label: 'Custom model…' },
+    ],
+    anthropic: [
+        { value: '',                   label: '— Default (claude-sonnet-4-6) —' },
+        { value: 'claude-sonnet-4-6',  label: 'Claude Sonnet 4.6' },
+        { value: 'claude-opus-4-6',    label: 'Claude Opus 4.6' },
+        { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+        { value: '__custom__',         label: 'Custom model…' },
+    ],
+    openrouter: [
+        { value: '',                                              label: '— Default (gpt-4o) —' },
+        { value: 'google/gemini-2.0-flash-exp:free',             label: 'Gemini 2.0 Flash (Free)' },
+        { value: 'meta-llama/llama-3.3-70b-instruct:free',       label: 'Llama 3.3 70B (Free)' },
+        { value: 'deepseek/deepseek-r1-distill-llama-70b:free',  label: 'DeepSeek R1 Distill 70B (Free)' },
+        { value: 'microsoft/phi-3-medium-128k-instruct:free',    label: 'Phi-3 Medium (Free)' },
+        { value: 'openai/gpt-4o',                                label: 'GPT-4o (Paid)' },
+        { value: 'openai/gpt-4o-mini',                           label: 'GPT-4o Mini (Paid)' },
+        { value: 'anthropic/claude-3-5-sonnet',                  label: 'Claude 3.5 Sonnet (Paid)' },
+        { value: '__custom__',                                   label: 'Custom model…' },
+    ],
+    aipipe: [
+        { value: '',                                        label: '— Default (openai/gpt-4.1-nano) —' },
+        { value: 'openai/gpt-4.1-nano',                    label: 'GPT-4.1 Nano ★ Recommended' },
+        { value: 'openai/gpt-4o-mini',                     label: 'GPT-4o Mini' },
+        { value: 'openai/gpt-4o',                          label: 'GPT-4o' },
+        { value: 'anthropic/claude-3-5-sonnet',            label: 'Claude 3.5 Sonnet' },
+        { value: 'anthropic/claude-3-haiku',               label: 'Claude 3 Haiku' },
+        { value: 'google/gemini-2.0-flash-exp:free',       label: 'Gemini 2.0 Flash (Free)' },
+        { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (Free)' },
+        { value: '__custom__',                             label: 'Custom model…' },
+    ],
 };
 
 function loadApiConfig() {
@@ -382,34 +422,65 @@ function updateApiKeyIndicator() {
 }
 
 function setupApiKeyModal() {
-    const btn       = document.getElementById('api-key-btn');
-    const overlay   = document.getElementById('api-modal-overlay');
-    const closeBtn  = document.getElementById('api-modal-close');
-    const saveBtn   = document.getElementById('api-key-save');
-    const clearBtn  = document.getElementById('api-key-clear');
+    const btn         = document.getElementById('api-key-btn');
+    const overlay     = document.getElementById('api-modal-overlay');
+    const closeBtn    = document.getElementById('api-modal-close');
+    const saveBtn     = document.getElementById('api-key-save');
+    const clearBtn    = document.getElementById('api-key-clear');
     const providerSel = document.getElementById('api-provider');
-    const modelInput  = document.getElementById('api-model');
+    const modelSel    = document.getElementById('api-model');
+    const modelCustom = document.getElementById('api-model-custom');
+    const modelGroup  = document.getElementById('model-group');
     const keyInput    = document.getElementById('api-key-input');
-    const modelHint   = document.getElementById('model-hint');
 
-    function applyModelHint(provider) {
-        if (MODEL_HINTS[provider]) {
-            modelHint.textContent = '(' + MODEL_HINTS[provider].split(',')[0] + ')';
-            modelInput.placeholder = MODEL_HINTS[provider].split(',')[0].replace('e.g. ', '');
+    function populateModels(provider, savedModel) {
+        const options = PROVIDER_MODELS[provider] || [];
+        modelSel.innerHTML = '';
+
+        if (!provider || options.length === 0) {
+            modelGroup.style.display = 'none';
+            return;
+        }
+        modelGroup.style.display = 'flex';
+
+        options.forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt.value;
+            el.textContent = opt.label;
+            modelSel.appendChild(el);
+        });
+
+        // Restore saved model selection
+        const match = savedModel && Array.from(modelSel.options).find(o => o.value === savedModel);
+        if (match) {
+            modelSel.value = savedModel;
+            modelCustom.style.display = 'none';
+        } else if (savedModel) {
+            modelSel.value = '__custom__';
+            modelCustom.value = savedModel;
+            modelCustom.style.display = 'block';
         } else {
-            modelHint.textContent = '';
-            modelInput.placeholder = 'Leave blank for default';
+            modelSel.value = '';
+            modelCustom.style.display = 'none';
         }
     }
 
+    function getSelectedModel() {
+        return modelSel.value === '__custom__' ? modelCustom.value.trim() : modelSel.value;
+    }
+
+    // Toggle custom input when "Custom model…" is picked
+    modelSel.addEventListener('change', () => {
+        modelCustom.style.display = modelSel.value === '__custom__' ? 'block' : 'none';
+        if (modelSel.value === '__custom__') modelCustom.focus();
+    });
+
     // Open
     btn.addEventListener('click', () => {
-        if (userApiConfig) {
-            providerSel.value = userApiConfig.provider || '';
-            modelInput.value  = userApiConfig.model   || '';
-            keyInput.value    = userApiConfig.apiKey  || '';
-            applyModelHint(userApiConfig.provider || '');
-        }
+        const cfg = userApiConfig || {};
+        providerSel.value = cfg.provider || '';
+        keyInput.value    = cfg.apiKey   || '';
+        populateModels(cfg.provider || '', cfg.model || '');
         updateApiKeyIndicator();
         overlay.classList.add('visible');
     });
@@ -419,12 +490,12 @@ function setupApiKeyModal() {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('visible'); });
 
     // Provider change
-    providerSel.addEventListener('change', () => applyModelHint(providerSel.value));
+    providerSel.addEventListener('change', () => populateModels(providerSel.value, ''));
 
     // Save
     saveBtn.addEventListener('click', () => {
         const provider = providerSel.value;
-        const model    = modelInput.value.trim();
+        const model    = getSelectedModel();
         const apiKey   = keyInput.value.trim();
 
         if (!provider) {
@@ -448,9 +519,8 @@ function setupApiKeyModal() {
     clearBtn.addEventListener('click', () => {
         clearApiConfig();
         providerSel.value = '';
-        modelInput.value  = '';
         keyInput.value    = '';
-        applyModelHint('');
+        populateModels('', '');
         overlay.classList.remove('visible');
     });
 }
