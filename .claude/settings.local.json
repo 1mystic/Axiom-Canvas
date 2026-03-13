@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(find /g/synced-pc/1_Work/projects/Axiom-canvas -not -path */.venv/* -not -path */.git/* -not -path */__pycache__/* -type f)"
-    ]
-  }
-}

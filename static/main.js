@@ -376,15 +376,19 @@ const PROVIDER_MODELS = {
         { value: '__custom__',                                   label: 'Custom model…' },
     ],
     aipipe: [
-        { value: '',                                        label: '— Default (openai/gpt-4.1-nano) —' },
-        { value: 'openai/gpt-4.1-nano',                    label: 'GPT-4.1 Nano ★ Recommended' },
-        { value: 'openai/gpt-4o-mini',                     label: 'GPT-4o Mini' },
-        { value: 'openai/gpt-4o',                          label: 'GPT-4o' },
-        { value: 'anthropic/claude-3-5-sonnet',            label: 'Claude 3.5 Sonnet' },
-        { value: 'anthropic/claude-3-haiku',               label: 'Claude 3 Haiku' },
-        { value: 'google/gemini-2.0-flash-exp:free',       label: 'Gemini 2.0 Flash (Free)' },
-        { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (Free)' },
-        { value: '__custom__',                             label: 'Custom model…' },
+        // Models via aipipe.org — use openrouter format (provider/model) for OpenRouter proxy,
+        // or plain names (gpt-4o-mini) for the OpenAI proxy. See aipipe.org/playground.
+        { value: '',                                           label: '— Default (openai/gpt-4.1-nano) —' },
+        { value: 'openai/gpt-4.1-nano',                       label: 'GPT-4.1 Nano ★ Recommended' },
+        { value: 'openai/gpt-4o-mini',                        label: 'GPT-4o Mini' },
+        { value: 'openai/gpt-4o',                             label: 'GPT-4o' },
+        { value: 'google/gemini-2.0-flash-lite-001',          label: 'Gemini 2.0 Flash Lite' },
+        { value: 'google/gemini-2.5-flash-preview-05-20',     label: 'Gemini 2.5 Flash Preview' },
+        { value: 'anthropic/claude-3-5-sonnet',               label: 'Claude 3.5 Sonnet' },
+        { value: 'anthropic/claude-3-haiku',                  label: 'Claude 3 Haiku' },
+        { value: 'meta-llama/llama-3.3-70b-instruct:free',    label: 'Llama 3.3 70B (Free)' },
+        { value: 'deepseek/deepseek-r1-distill-llama-70b:free', label: 'DeepSeek R1 Distill 70B (Free)' },
+        { value: '__custom__',                                label: 'Custom model…' },
     ],
 };
 

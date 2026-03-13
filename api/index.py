@@ -224,16 +224,26 @@ def generate_with_user_key(agnostic_messages, user_config):
     elif provider in ('openai', 'openrouter', 'aipipe'):
         if not OPENAI_SUPPORT:
             raise Exception("OpenAI package not installed on server.")
-        if not model:
-            model = 'gpt-4o-mini' if provider == 'openai' else 'gpt-4o'
 
-        base_urls = {
-            'openrouter': 'https://openrouter.ai/api/v1',
-            'aipipe': 'https://aipipe.org/openrouter/v1'
-        }
+        # aipipe routing: OpenRouter-format models (provider/model) use /openrouter/v1;
+        # plain OpenAI model names use /openai/v1. Default to OpenRouter endpoint.
+        if provider == 'aipipe':
+            if not model:
+                model = 'openai/gpt-4.1-nano'
+            # Plain OpenAI model names (no slash) route through /openai/v1
+            base_url = 'https://aipipe.org/openai/v1' if '/' not in model else 'https://aipipe.org/openrouter/v1'
+        elif provider == 'openrouter':
+            if not model:
+                model = 'openai/gpt-4o-mini'
+            base_url = 'https://openrouter.ai/api/v1'
+        else:  # openai
+            if not model:
+                model = 'gpt-4o-mini'
+            base_url = None
+
         kwargs = {'api_key': api_key}
-        if provider in base_urls:
-            kwargs['base_url'] = base_urls[provider]
+        if base_url:
+            kwargs['base_url'] = base_url
 
         user_openai_client = OpenAI(**kwargs)
         openai_msgs = [{"role": "system", "content": system_instruction}]
