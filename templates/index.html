@@ -73,55 +73,6 @@
                 </div>
             </div>
 
-            <!-- API Key Settings Modal -->
-            <div class="modal-overlay" id="api-modal-overlay">
-                <div class="modal api-key-modal">
-                    <div class="modal-header">
-                        <div class="modal-title">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
-                            </svg>
-                            <h2>Your API Key</h2>
-                        </div>
-                        <button class="modal-close" id="api-modal-close" title="Close">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="modal-desc">Use your own API key to run Axiom Canvas on your own quota. All of Axiom's math tuning, grounding, and visualisation logic stay intact.</p>
-
-                        <div class="form-group">
-                            <label for="api-provider">Provider</label>
-                            <select id="api-provider">
-                                <option value="">— Use Axiom's Default (no key needed) —</option>
-                                <option value="gemini">Google Gemini</option>
-                                <option value="openai">OpenAI</option>
-                                <option value="anthropic">Anthropic / Claude</option>
-                                <option value="openrouter">OpenRouter</option>
-                                <option value="aipipe">aipipe.org</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="api-model">Model <span class="label-hint" id="model-hint"></span></label>
-                            <input type="text" id="api-model" placeholder="Leave blank for default" autocomplete="off" />
-                        </div>
-
-                        <div class="form-group">
-                            <label for="api-key-input">API Key</label>
-                            <input type="password" id="api-key-input" placeholder="Paste your API key here…" autocomplete="off" />
-                        </div>
-
-                        <div class="api-active-banner" id="api-active-banner">
-                            <span class="status-dot" style="background:#10b981; box-shadow:0 0 6px #10b981;"></span>
-                            <span>Custom key active — requests use your quota</span>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn-ghost" id="api-key-clear">Clear Key</button>
-                        <button class="btn-primary" id="api-key-save">Save &amp; Use Key</button>
-                    </div>
-                </div>
-            </div>
-
             <!-- PDF Upload Section -->
             <div class="upload-section">
                 <input type="file" id="pdf-upload" accept=".pdf" style="display: none;">
@@ -178,6 +129,55 @@
                     <span></span><span></span><span></span>
                 </div>
                 <span>Thinking...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Settings Modal (at body level to escape stacking contexts) -->
+    <div class="modal-overlay" id="api-modal-overlay">
+        <div class="modal api-key-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                    </svg>
+                    <h2>Your API Key</h2>
+                </div>
+                <button class="modal-close" id="api-modal-close" title="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Use your own API key to run Axiom Canvas on your own quota. All of Axiom's math tuning, grounding, and visualisation logic stay intact.</p>
+
+                <div class="form-group">
+                    <label for="api-provider">Provider</label>
+                    <select id="api-provider">
+                        <option value="">— Use Axiom's Default (no key needed) —</option>
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic / Claude</option>
+                        <option value="openrouter">OpenRouter</option>
+                        <option value="aipipe">aipipe.org</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="api-model">Model <span class="label-hint" id="model-hint"></span></label>
+                    <input type="text" id="api-model" placeholder="Leave blank for default" autocomplete="off" />
+                </div>
+
+                <div class="form-group">
+                    <label for="api-key-input">API Key</label>
+                    <input type="password" id="api-key-input" placeholder="Paste your API key here…" autocomplete="off" />
+                </div>
+
+                <div class="api-active-banner" id="api-active-banner">
+                    <span class="status-dot" style="background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+                    <span>Custom key active — requests use your quota</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost" id="api-key-clear">Clear Key</button>
+                <button class="btn-primary" id="api-key-save">Save &amp; Use Key</button>
             </div>
         </div>
     </div>
