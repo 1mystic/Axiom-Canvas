@@ -184,6 +184,113 @@ def generate_smartly(agnostic_messages):
 
     raise last_error or Exception("All Available AI Routes Exhausted.")
 
+# --- USER-PROVIDED API KEY GENERATION ---
+
+def generate_with_user_key(agnostic_messages, user_config):
+    """
+    Generate response using a user-provided API key and provider.
+    Preserves Axiom Canvas system instruction and grounding from axiom_brain.
+    """
+    provider = user_config.get('provider', '').lower().strip()
+    api_key = user_config.get('apiKey', '').strip()
+    model = user_config.get('model', '').strip()
+
+    if not api_key:
+        raise Exception("No API key provided in user config.")
+
+    system_instruction = axiom_brain.SYSTEM_INSTRUCTION
+
+    if provider == 'gemini':
+        if not model:
+            model = 'gemini-2.0-flash'
+        user_gemini_client = genai.Client(api_key=api_key)
+        gemini_contents = [
+            types.Content(
+                role=dict(m)['role'],
+                parts=[types.Part.from_text(text=str(dict(m)['content']))]
+            )
+            for m in agnostic_messages
+        ]
+        response = user_gemini_client.models.generate_content(
+            model=model,
+            contents=gemini_contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.7
+            )
+        )
+        return response.text
+
+    elif provider in ('openai', 'openrouter', 'aipipe'):
+        if not OPENAI_SUPPORT:
+            raise Exception("OpenAI package not installed on server.")
+        if not model:
+            model = 'gpt-4o-mini' if provider == 'openai' else 'gpt-4o'
+
+        base_urls = {
+            'openrouter': 'https://openrouter.ai/api/v1',
+            'aipipe': 'https://api.aipipe.org/v1'
+        }
+        kwargs = {'api_key': api_key}
+        if provider in base_urls:
+            kwargs['base_url'] = base_urls[provider]
+
+        user_openai_client = OpenAI(**kwargs)
+        openai_msgs = [{"role": "system", "content": system_instruction}]
+        for m in agnostic_messages:
+            role = dict(m)['role']
+            content = str(dict(m)['content'])
+            # Convert Gemini "model" role to OpenAI "assistant"
+            openai_msgs.append({"role": "assistant" if role == "model" else role, "content": content})
+
+        resp = user_openai_client.chat.completions.create(
+            model=model,
+            messages=openai_msgs,
+            temperature=0.7
+        )
+        return resp.choices[0].message.content
+
+    elif provider == 'anthropic':
+        if not model:
+            model = 'claude-sonnet-4-6'
+        try:
+            import anthropic as anthropic_sdk
+        except ImportError:
+            raise Exception("Anthropic package not installed on server.")
+
+        user_anthropic_client = anthropic_sdk.Anthropic(api_key=api_key)
+
+        # Convert roles: "model" -> "assistant"
+        raw_msgs = []
+        for m in agnostic_messages:
+            role = dict(m)['role']
+            content = str(dict(m)['content'])
+            raw_msgs.append({"role": "assistant" if role == "model" else role, "content": content})
+
+        # Merge consecutive same-role messages (Anthropic requirement)
+        anthropic_msgs = []
+        for msg in raw_msgs:
+            if anthropic_msgs and anthropic_msgs[-1]['role'] == msg['role']:
+                anthropic_msgs[-1]['content'] += '\n\n' + msg['content']
+            else:
+                anthropic_msgs.append(dict(msg))
+
+        # Anthropic requires messages to start with "user"
+        if not anthropic_msgs or anthropic_msgs[0]['role'] != 'user':
+            anthropic_msgs.insert(0, {"role": "user", "content": "Begin."})
+
+        resp = user_anthropic_client.messages.create(
+            model=model,
+            max_tokens=4096,
+            system=system_instruction,
+            messages=anthropic_msgs,
+            temperature=0.7
+        )
+        return resp.content[0].text
+
+    else:
+        raise Exception(f"Unknown provider '{provider}'. Supported: gemini, openai, anthropic, openrouter, aipipe")
+
 # --- PARSING LOGIC (3-Stage) ---
 def parse_response(raw_text):
     chat_resp = None
@@ -254,8 +361,12 @@ def chat():
         )
         msgs.append({"role": "user", "content": user_msg})
 
-        # Generate
-        raw_text = generate_smartly(msgs)
+        # Generate — use user key if provided, else fall back to smart routing
+        user_api_config = data.get('userApiConfig')
+        if user_api_config and user_api_config.get('apiKey'):
+            raw_text = generate_with_user_key(msgs, user_api_config)
+        else:
+            raw_text = generate_smartly(msgs)
         # print(f"AI Output: {raw_text[:60]}...")
         
         # Parse
